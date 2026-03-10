@@ -23,33 +23,25 @@ FACTOR = 28
 MIN_PIXELS = 4 * FACTOR * FACTOR
 MAX_PIXELS = 16384 * FACTOR * FACTOR
 
-PROMPT_TEMPLATE_DETECT = """请仔细观察这张图片，找出图中所有的**{target}**。
-注意：不要遗漏任何一处，哪怕是很小的字、边角的位置，都要找出来。
+PROMPT_TEMPLATE_DETECT = """请仔细观察这张图片，找出图中所有的{target}。
 
-对于每一处，给出它在图片中的精确位置，用 bbox_2d 格式 [x1, y1, x2, y2] 表示，坐标为像素值。
+要求：
+1. 不要遗漏任何一处，包括小字、边角位置
+2. bbox_2d 必须紧紧贴合目标边缘，不要包含多余的空白区域
+3. 每个目标单独一个框，不要把多个目标合成一个框
+4. name 字段填写识别到的具体内容（纯文本，不要加任何格式符号）
 
-只返回 JSON 数组，不要返回其他任何内容。格式：
-```json
-[
-  {{"name": "示例1", "bbox_2d": [100, 200, 250, 240]}},
-  {{"name": "示例2", "bbox_2d": [100, 300, 250, 340]}}
-]
-```
+返回 JSON 数组，格式：
+[{{"name": "具体内容", "bbox_2d": [x1, y1, x2, y2]}}]
 
-如果图中没有找到，返回空数组 `[]`。"""
+没有找到则返回 []"""
 
-PROMPT_TEMPLATE_VERIFY = """这张图片中，白色/红色方块覆盖的区域是已经被遮盖的内容。
-请检查图片中是否还有**未被遮盖的{target}**。
-仔细检查每个角落、小字、列表项，不要遗漏。
+PROMPT_TEMPLATE_VERIFY = """图中白色/红色方块是已遮盖区域。
+请检查是否还有未被遮盖的{target}，仔细检查每个角落。
 
-对于每一处漏掉的，给出它的位置，用 bbox_2d 格式 [x1, y1, x2, y2] 表示。
-
-只返回 JSON 数组。如果全部已被遮盖，返回空数组 `[]`。
-```json
-[
-  {{"name": "示例", "bbox_2d": [300, 400, 420, 430]}}
-]
-```"""
+bbox_2d 必须紧贴目标边缘，每个目标单独一个框。
+返回 JSON 数组：[{{"name": "内容", "bbox_2d": [x1, y1, x2, y2]}}]
+全部已遮盖则返回 []"""
 
 DEFAULT_TARGET = "中文人名（包括姓名、昵称、网名、用户名等可以识别为具体个人身份的文字）"
 
@@ -146,7 +138,7 @@ def _call_api(client: OpenAI, model: str, data_url: str, prompt: str,
 def _convert_boxes(items, model_w, model_h, orig_w, orig_h, offset_x=0, offset_y=0):
     results = []
     for item in items:
-        name = item.get("name", "").strip()
+        name = re.sub(r"[*_`#~]", "", item.get("name", "")).strip()
         bbox = item.get("bbox_2d")
         if not name or not bbox or len(bbox) != 4:
             continue

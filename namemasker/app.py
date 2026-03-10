@@ -223,9 +223,16 @@ class App:
         self.canvas.bind("<Configure>", self._on_canvas_resize)
 
     def _build_shortcuts(self):
-        self.root.bind("<Control-z>", lambda e: self.undo_last())
-        self.root.bind("<Control-s>", lambda e: self.save_file())
-        self.root.bind("<Control-o>", lambda e: self.open_file())
+        def _shortcut(fn):
+            def handler(e):
+                if isinstance(e.widget, (tk.Entry, ttk.Entry, ttk.Spinbox)):
+                    return
+                fn()
+                return "break"
+            return handler
+        self.root.bind_all("<Control-z>", _shortcut(self.undo_last))
+        self.root.bind_all("<Control-s>", _shortcut(self.save_file))
+        self.root.bind_all("<Control-o>", _shortcut(self.open_file))
 
     def _setup_dnd(self):
         if not HAS_DND:
