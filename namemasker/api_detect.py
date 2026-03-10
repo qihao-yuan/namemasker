@@ -88,14 +88,42 @@ def _guess_mime(path: str) -> str:
     }.get(ext, "image/jpeg")
 
 
+def _fix_json(s: str) -> str:
+    s = re.sub(r",\s*([}\]])", r"\1", s)
+    s = re.sub(r"(?<=\d)\s*\n\s*(?=\d)", ", ", s)
+    s = re.sub(r"}\s*{", "}, {", s)
+    s = re.sub(r"]\s*\[", "], [", s)
+    return s
+
+
 def _parse_response(text: str):
     text = text.strip()
+    candidates = []
     m = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", text, re.DOTALL)
     if m:
-        return json.loads(m.group(1))
+        candidates.append(m.group(1))
     m = re.search(r"\[.*\]", text, re.DOTALL)
     if m:
-        return json.loads(m.group(0))
+        candidates.append(m.group(0))
+    for raw in candidates:
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            pass
+        try:
+            return json.loads(_fix_json(raw))
+        except json.JSONDecodeError:
+            pass
+    objs = list(re.finditer(r"\{[^{}]*\}", text))
+    if objs:
+        parts = []
+        for om in objs:
+            try:
+                parts.append(json.loads(_fix_json(om.group(0))))
+            except json.JSONDecodeError:
+                pass
+        if parts:
+            return parts
     return []
 
 
