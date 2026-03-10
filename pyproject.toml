@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=77.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "namemasker"
+dynamic = ["version"]
+description = "Privacy masking tool for images and documents - auto-detect and mask names/text using vision LLMs"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [{name = "NameMasker Contributors"}]
+keywords = ["privacy", "masking", "mosaic", "ocr", "image", "pdf", "docx", "ner"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Graphics",
+]
+dependencies = [
+    "Pillow>=10.0.0",
+    "openai>=1.0.0",
+]
+
+[project.optional-dependencies]
+dnd = ["tkinterdnd2>=0.3"]
+docs = ["python-docx>=1.0.0", "PyMuPDF>=1.24.0"]
+all = ["tkinterdnd2>=0.3", "python-docx>=1.0.0", "PyMuPDF>=1.24.0"]
+
+[project.gui-scripts]
+namemasker = "namemasker.app:main"
+
+[project.urls]
+Homepage = "https://github.com/your-username/namemasker"
+Issues = "https://github.com/your-username/namemasker/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "namemasker.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["namemasker*"]
+
+[tool.setuptools.package-data]
+namemasker = ["assets/*.ico", "assets/*.png"]
