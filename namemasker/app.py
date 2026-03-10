@@ -71,6 +71,7 @@ class App:
         self.photo = None
 
         self.regions = []
+        self._undo_stack = []
         self.drawing = False
         self.start_x = 0
         self.start_y = 0
@@ -231,6 +232,7 @@ class App:
                 return "break"
             return handler
         self.root.bind_all("<Control-z>", _shortcut(self.undo_last))
+        self.root.bind_all("<Control-y>", _shortcut(self.redo_last))
         self.root.bind_all("<Control-s>", _shortcut(self.save_file))
         self.root.bind_all("<Control-o>", _shortcut(self.open_file))
 
@@ -964,11 +966,29 @@ class App:
     def undo_last(self):
         if not self.regions or self._busy:
             return
-        rid, _, lid = self.regions.pop()
+        item = self.regions.pop()
+        rid, coords, lid = item
         self.canvas.delete(rid)
         if lid:
             self.canvas.delete(lid)
-        self.status.configure(text=f"已撤销，剩余 {len(self.regions)} 个区域")
+        self._undo_stack.append(item)
+        self.status.configure(text=f"已撤销，剩余 {len(self.regions)} 个  |  Ctrl+Y 恢复")
+
+    def redo_last(self):
+        if not self._undo_stack or self._busy or not self.pil_image:
+            return
+        _, coords, _ = self._undo_stack.pop()
+        rx1, ry1, rx2, ry2 = coords
+        cx1 = int(rx1 * self.pil_image.width / self._disp_w * self._disp_w / self.pil_image.width * self.scale) if self.scale else rx1
+        cy1 = int(ry1 * self.scale) if hasattr(self, 'scale') else ry1
+        # Redraw using real coords -> canvas coords
+        sx = self._disp_w / self.pil_image.width if self.pil_image.width > 0 else 1
+        sy = self._disp_h / self.pil_image.height if self.pil_image.height > 0 else 1
+        cx1, cy1 = int(rx1 * sx), int(ry1 * sy)
+        cx2, cy2 = int(rx2 * sx), int(ry2 * sy)
+        rid = self.canvas.create_rectangle(cx1, cy1, cx2, cy2, outline="red", width=2)
+        self.regions.append((rid, coords, None))
+        self.status.configure(text=f"已恢复，共 {len(self.regions)} 个区域")
 
     def clear_all(self):
         for rid, _, lid in self.regions:
@@ -976,6 +996,7 @@ class App:
             if lid:
                 self.canvas.delete(lid)
         self.regions.clear()
+        self._undo_stack.clear()
         self.status.configure(text="已清除所有框")
 
 

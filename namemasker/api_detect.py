@@ -204,6 +204,31 @@ def _compute_edge_strips(img_w, img_h, ratio=EDGE_RATIO):
     return strips
 
 
+def _compute_grid_tiles(img_w, img_h, min_dim=800, overlap=0.25):
+    """
+    Split image into overlapping tiles for thorough detection.
+    Only activates for images larger than min_dim in both dimensions.
+    Returns list of (x, y, w, h).
+    """
+    if img_w <= min_dim and img_h <= min_dim:
+        return []
+    cols = max(2, math.ceil(img_w / min_dim))
+    rows = max(2, math.ceil(img_h / min_dim))
+    tw = img_w // cols
+    th = img_h // rows
+    ow = int(tw * overlap)
+    oh = int(th * overlap)
+    tiles = []
+    for r in range(rows):
+        for c in range(cols):
+            x = max(0, c * tw - ow)
+            y = max(0, r * th - oh)
+            x2 = min(img_w, x + tw + ow * 2)
+            y2 = min(img_h, y + th + oh * 2)
+            tiles.append((x, y, x2 - x, y2 - y))
+    return tiles
+
+
 def _mark_regions_on_image(im: Image.Image, regions, pad_pct=0.3):
     """Draw red filled rectangles over detected regions to create a 'masked' preview."""
     marked = im.copy()
@@ -257,7 +282,8 @@ def detect_names(
     client = OpenAI(api_key=api_key, base_url=base_url)
 
     edge_strips = _compute_edge_strips(img_w, img_h)
-    total_steps = 1 + len(edge_strips) + max(0, passes - 1)
+    grid_tiles = _compute_grid_tiles(img_w, img_h)
+    total_steps = 1 + len(edge_strips) + len(grid_tiles) + max(0, passes - 1)
     step = 0
 
     def _progress(msg):
@@ -288,7 +314,17 @@ def detect_names(
         crop_mw, crop_mh = _smart_resize(sw, sh)
         all_results.extend(_convert_boxes(crop_items, crop_mw, crop_mh, sw, sh, offset_x=sx, offset_y=sy))
 
-    # -- step 3: verification passes --
+    # -- step 3: grid tiles (catch missed center areas) --
+    for gi, (gx, gy, gw, gh) in enumerate(grid_tiles):
+        _progress(f"网格区域 {gi+1}/{len(grid_tiles)}...")
+        tile = im.crop((gx, gy, gx + gw, gy + gh))
+        tile_b64 = _pil_to_base64(tile, "PNG")
+        tile_url = f"data:image/png;base64,{tile_b64}"
+        tile_items = _call_api(client, model, tile_url, prompt_detect)
+        tile_mw, tile_mh = _smart_resize(gw, gh)
+        all_results.extend(_convert_boxes(tile_items, tile_mw, tile_mh, gw, gh, offset_x=gx, offset_y=gy))
+
+    # -- step 4: verification passes --
     for p in range(1, passes):
         current = _deduplicate(all_results)
         if not current:
