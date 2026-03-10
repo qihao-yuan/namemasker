@@ -29,14 +29,14 @@ pip install namemasker
 ### 方式二：源码安装
 
 ```bash
-git clone https://github.com/your-username/namemasker.git
+git clone https://github.com/qihao-yuan/namemasker.git
 cd namemasker
 pip install -e .
 ```
 
 ### 方式三：直接下载 exe
 
-前往 [Releases](https://github.com/your-username/namemasker/releases) 下载最新版 `NameMasker.exe`，双击即用。
+前往 [Releases](https://github.com/qihao-yuan/namemasker/releases) 下载最新版 `NameMasker.exe`，双击即用。
 
 ## 🚀 使用
 
